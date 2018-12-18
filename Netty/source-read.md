@@ -11,7 +11,7 @@
 >* 设置绑定Reactor线程池，Netty的线程池是EventLoopGroup--EventLoop数组。EventLoop职责：处理所有注册到
 本线程多路复用器Selector上的Channel，Selector的轮询操作由绑定的EventLoop线程run方法驱动，在一个循环体内循环执行。
 EventLoop的职责：处理网络I/O；处理用户自定义task和定时任务task（避免启动其他线程用于异步执行另外的任务）
->* 设置绑定服务端channel，[为什么要用反射创建NioServerSocketChannel对象](https://baidu.com)  
+>* 设置绑定服务端channel 
 >* TCP链路建立时候创建并初始化ChannelPipeline。一个负责处理网络事件的职责链,网络事件以事件流
 的形式在ChannelPipline中流转，由ChannelPipeline根据网络事件的类型调度ChannelHandler的执行
 >* 初始化ChannelPipeline后，添加并设置ChannelHandler。~是Netty提供给用户定制和扩展的关键接口

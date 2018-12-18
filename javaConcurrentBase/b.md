@@ -226,11 +226,34 @@ ArrayBlockingQueue原理：使用了通知模式来实现，当生产者往满�
 Java7提供的，了解一下。待更。
 # Java中的原子操作类
 java.util.concurrent.atomic包的类基本都是使用Unsafe实现的包装类。
+运用场景，以AtomicInteger为例：[AtomicInteger](https://haininghacker-foxmail-com.iteye.com/blog/1401346)
 
 # Java中的并发工具类
 ## CountDownLatch
+假设一个需求：解析一个Excel里多个sheet的数据，考虑使用多线程，每个线程解析一个sheet里的数据，所有sheet解析完成后，程序提示完成。最简单的做法是join()方法：
+```text
+main{
+   thread1.start();
+   thread2.start();
+   thread1.join();
+   thread2.join();
+   System.out.println("ok");
+}
+```
+其原理是不停检查join线程是否存活，如果join线程存活则让当前线程永远等待：
+```text
+while(isAive()) {
+  wait(0)  //永远等待下去
+}
+```
+直到join线程终止后，线程的this.notifyAll()方法会被调用。   
+JDK1.5提供了CountDownLatch，它的构造函数接收一个int类型的参数，如果想要等待N个点（可以是N个线程，也可以是1个线程中的N个步骤）完成，那就传入N。方法：countDown调用N就会-1，CountDownLatch的await方法会阻塞当前线程，直到N变为0。   
+在[SparkPro的netty包里AIO代码](https://github.com/suns1824/SparkPro/blob/master/src/main/java/com/happy/netty/aio/AsyncTimeClientHandler.java)中有CountDownLatch的例子。  
 ## CyclicBarrier
+让一组线程到达一个屏障(同步点)时被阻塞直到最后一个线程到达屏障时，屏障才会开门，所有被屏障拦截的线程才会继续运行。每个线程调用await方法来告诉CyclicBarrier已经到达屏障。   
+**理解两个构造函数**   
+两者区别：CountDownLatch计数器只能使用一次，而CyclicBarrier的计数器可以使用reset()方法重置，当然还提供了其他很多方法。  
 ## Semaphore
+用来控制同时访问特定资源的线程数量，它通过协调各个线程，保证合理使用资源。**理解acquire和release方法**
 ## Exchanger
-
-# 线程池和Executor框架
+用于进行线程间的数据交换，它提供一个同步点，在这个同步点上，两个线程可以交换彼此的数据。
