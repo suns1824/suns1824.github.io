@@ -65,4 +65,117 @@ shutDownNow：将线程池状态设为STOP，然后尝试关闭所有正在执�
 重写beforeExecute,afterExecute,terminated方法监控线程池的属性  
 
 ## Executor框架
-Java线程既是工作单元也是执行机制。JDK5开始，把工作单元与执行机制分开来，工作单元包括Runnable和Callable，而执行机制有Executor框架提供。
+Java线程既是工作单元也是执行机制。JDK5开始，把工作单元与执行机制分开来，工作单元包括Runnable和Callable，而执行机制有Executor框架提供。·  
+**Executor框架的两级调度模型：**
+![executor](../img/executor1.jpg)  
+ps:HotSpot VM的线程模型中，Java线程被一对一映射为本地操作系统线程。   
+**Executor框架结构**
+主要由3大部分组成：
+>* 任务：包括被执行任务需要实现的接口：Runnable和Callable接口
+>* 任务的执行：包括任务执行机制的核心接口Executor，以及继承自Executor的ExecutorService接口(ThreadPoolExecutor和ScheduledThreadPoolExecutor实现了该接口)
+>* 异步计算的结果：包括接口Future和实现Future接口的FutureTask类
+
+框架整体结构(左上角应为Runnable)：
+![framework](../img/executor2.jpg)
+
+**Executor框架的成员**
+主要包括各种ThreadPoolExecutor，Future接口，Runnable接口，Callable接口和Executors。
+
+### ThreadPoolExecutor详解
+Executor框架最核心的类是ThreadPoolExecutor，它是线程池的实现类，主要由xxx构成。    
+重点：理解三种ThreadPoolExecutor的execute方法的运行示意图。
+ps: FixedThreadPool使用的是无界队列，理解其带来的影响至关重要；SingleThreadExecutor的corePoolSize和maximuPoolSize被设置为1，其他和FixedThreadPool相同，包括无界队列(都是LinkedBlockingQueue)；
+CachedThreadPool(大小无界的线程池，适用于执行很多短期异步任务的小程序或者负载较轻的服务器)是一个根据需要创建新线程的线程池，其corePoolSize被设置为0，maximumPoolSize被设置为Integer.MAX_VALUE,keepAliveTime为60L，
+使用没有容量的SynchronousQueue(传球手，吞吐量大)作为工作队列。
+### ScheduledThreadPoolExecutor详解
+主要用来在给定的延迟之后运行任务，或者定期执行任务。功能与Timer类似，Timer对应单个后台线程，而ScheduledThreadPoolExecutor可以在构造函数里指定线程数。   
+使用的是DelayQueue<RunnableScheduledFuture>(支持延时获取元素的无界阻塞队列),DelayQueue中存放的是ScheduledFutureTask，实现了XXX接口。  
+**实现：**  DelayQueue封装了一个PriorityQueue，这个PriorityQueue会对队列中的ScheduledFutureTask进行排序，time小的在前扽等排序规则。
+ps：理解执行任务的步骤，   
+下面是DelayQueue.take()方法的源码实现：
+```text
+//从DelayQueue中获取ScheduledFutureTask任务
+public E take() throws InterruptedException {
+  final ReentrantLock lock = this.lock;
+  lock.lockInterruptibly();    //获取lock
+  try {
+  //获取周期任务
+    for(;;) {
+      E first = q.peek();
+      if (first == null) {
+        available.await();   //如果priorityqueue为空，当前线程到Condition中等待
+      } else {
+        long delay = first.getDelay(TimeUnit.NANOSECONDS);
+        if (delay > 0) {
+          long t1 = available.awaitNanos(delay);  //如果PQ的头元素的time时间比当前时间大，到Condition中等待到time时间
+        } else {
+          E x = q.poll();  //获取PQ的头元素，如果PQ不为空，唤醒在Condition中等待的所有线程
+          assert x != null;
+          if (q.size() != 0) {
+            available.signalAll();
+          }
+          return x;
+        }
+      }
+    }
+  } finally {
+    lock.unlock();
+  }
+}
+```
+再看下如何把ScheduledFutureTask放入DelayQueue中去的：
+```text
+public boolean offer(E e) {
+  final ReentrantLock lock = this.lock;
+  lock.lock(); 
+  try {
+    E first = q.peek();
+    q.offer(e);
+    if (first == null || e.compareTo(first) < 0)
+      available.signalAll();
+    return true;  
+  } finally {
+      lock.unlock();
+    }
+  }
+}
+```
+### FutureTask详解
+Future接口和实现Future接口的FutureTask类，代表异步计算的结果。   
+FutureTask实现了Future接口和Runnable接口，因此FT可以交给Executor执行也可以由调用线程直接指向FutureTask.run()方法。
+**概念： 3种状态  && FutureTask.get()  && cancel**
+敲一个例子(多个线程执行若干任务，每个任务最多被执行一次，当多个线程同时执行同一个任务时，只允许一个线程执行任务，其他线程需要等待这个任务执行完成后才能继续执行)：
+```text
+private final ConcurrentMap<Object, Future<String>> taskCache = new ConcurrentHashMap<Object, Future<String>>();
+private String executionTask(final String taskName) throws ExecutionException, InterruptedException {
+  while(true) {
+    Future<String> future = taskCache.get(taskName);
+    if (future == null) {
+      Callable<String> task = new Callable<String>() {
+        public String call() throws InterruptedException {
+          return taskName;
+        }
+      };
+      FutureTask<String> futureTask = new FutureTask<String>(task);
+      future = taskCache.putIfAbsent(taskName, futureTask);
+      if (future == null) {
+        future = futureTask;
+        futureTask.run();
+      }
+    }
+    try {
+      return future.get();   //线程将在此等待任务执行完成，这里需理解get()方法
+    } catch (CancellationException e) {
+      taskCache.remove(taskName, future);
+    }
+  }
+}
+```
+#### FutureTask实现
+基于AQS实现的(ReentrantLock,Semaphore,ReentrantReadWriteLock,CountDownLatch也都是XXX)，细节实现查看源码。  
+每一个基于AQS实现的同步器都含有两类操作：
+>* acquire操作：阻塞调用线程，直到AQS的状态允许这个线程继续执行，FutureTask中get方法调用了acquire
+>* release操作：改变AQS的状态，FutureTask中release操作包括run()方法和cancel(...)方法  
+
+**思考**：为什么都是使用内部类继承AQS？ ----组合优于继承  
+

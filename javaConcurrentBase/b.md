@@ -223,7 +223,8 @@ Condition拥有首尾节点的引用，新增节点只需将原有的尾节点�
 ArrayBlockingQueue原理：使用了通知模式来实现，当生产者往满的队列里添加元素时会阻塞住生产者，当消费者消费了一个队列的元素后，会通知生产者当前队列可用(Conditon来实现)。  
 延申：看下Unsafe.park等方法，都是native方法。
 ## Fork/Join框架
-Java7提供的，了解一下。待更。
+一个并行执行任务的框架，是一个把大任务分割(fork)成若干个小任务，最终汇总(join)每个小任务结果后得到大任务结果的框架。   
+**延申**：工作窃取算法：指某个线程从其他队列里窃取任务来执行,为例减少窃取任务线程和被窃取线程之间的竞争，通常使用双端队列，被窃取线程永远从自己的等待任务队列的头部拿任务执行，而XXX。
 # Java中的原子操作类
 java.util.concurrent.atomic包的类基本都是使用Unsafe实现的包装类。
 运用场景，以AtomicInteger为例：[AtomicInteger](https://haininghacker-foxmail-com.iteye.com/blog/1401346)
