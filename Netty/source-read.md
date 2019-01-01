@@ -4,6 +4,8 @@
 >* 了解Reactor模式
 >* [无锁编程](https://blog.csdn.net/zzulp/article/details/6259866)
 
+[编解码粗略](http://www.linkedkeeper.com/105.html)   
+
 # 服务端创建
 创建SerBootStrap实例，时序图如下：
 ![pic1](../img/server1.jpg)  
@@ -19,6 +21,8 @@ EventLoop的职责：处理网络I/O；处理用户自定义task和定时任务t
 >* electorS轮询，由Reactor线程NioEventLoop负责调度和执行Selector轮询操作
 >* 轮询到就绪channel后，由Reactor线程NioEventLoop执行ChannelPipeline的相应方法，最终调度并执行ChannelHandler:
 >* 执行Netty系统Channelhandler和用户定制的ChannelHandler。
+
+# 客户端创建
 
 # 线程模型
 Netty框架的主要线程就是I/O线程
@@ -64,4 +68,104 @@ try {
 
 为了尽可能提升性能，Netty在很多地方进行了无锁化设计(I/O线程内部进行串行设计)，同时可以通过调整参数同时启动多个串行化的线程并行运行。
 **设计原理**：
-Netty的NioEventLoop读取到消息后，直接调用ChannelPipeline的fireChannelRead。只要用户不主动切换线程，一直都是NioEventLoop调用用户的Handler，期间不进行线程切换。
+Netty的NioEventLoop读取到消息后，直接调用ChannelPipeline的fireChannelRead。只要用户不主动切换线程，一直都是NioEventLoop调用用户的Handler，期间不进行线程切换。  
+NioEventLoop除了负责I/O的读写之外，还兼顾处理系统Task（放到消息队列中由I/O线程执行，实现局部无锁化）和定时任务。  
+作为NIO框架的Reactor线程，NioEventLoop需要处理网络I/O读写事件，因此它必须聚合一个多路复用器对象：Selector(初始化(是否开启selectedKeys优化)+执行)。   
+执行代码：
+```text
+run() {
+  for(;;) {
+    oldWakenUp = wakenUp.getAndSet(false);
+    try {
+      if (hasTasks()) {   //判断消息队列里是否由任务需要处理
+        selectNow();
+      } else {
+        select();     //没有则由Selector轮询，看是否有准备就绪的Channel(具体将会计算下一个将要触发的定时任务的剩余超时时间，XXX调用selectNow并退出循环)
+        if (wakenUp.get()) {
+          selector.wakeUp();
+        }
+      }
+    }
+  }
+}
+```
+**NioEventLoop中Selector空轮询bug解决策略：**
+>* 对Selector的select操作周期进行统计
+>* 每完成一次空的select操作进行一次计数
+>* 在某个周期内(100ms)如果发生连续N次空轮询，说明触发了JDK NIO的epoll()死循环bug
+
+检测到Selector处于死循环后，需要通过重建Selector的方式让系统恢复正常：
+```text
+public void rebuildSelector() {
+//判断是否其他线程发起的rebuildSelector
+  if (!initEventLoop()) {
+  //放到NioEventLoop的消息队列中，由NioEventLoop线程负责调用，避免多线程XX  
+    execute(() -> {
+      rebuildSelector();
+    });
+    return;
+  }
+  final Selector selector = selector;
+  final Selector newSelector;
+  if (oldSelector == null) {
+    return;
+  }
+  try {
+    newSelector = openSelctor();  //将原来Selector上注册的SocketChannel重新注册到新的Selector上并将原来的Selector关掉
+  } catch (Exception e) {
+    logXXX;
+    return;
+  }
+}
+```
+如果轮询到了处于就绪状态的SocketChannel，则需要处理网络I/O事件：
+```text
+if (selectedKeys != null) {
+  processSelectedKeysOptimized(selectedKeys.flip());
+} else {
+  processSelectedKeysPlain(seletor.selectedKeys());
+}
+
+private void processSelectedKeysPlain(Set<SelectionKey> selectedKeys) {
+  Iterator<SelectionKey> i = seletedKeys.iterator();
+  for(;;) {
+    final SelectionKey k = i.next();
+    fina Object a = k.attachment();
+    i.remove();
+  }
+}
+
+attachment()方法是获取SelectionKey和SocketChannel的附件对象(以下代码为了直观而写，语法有问题):
+attachment() {
+      processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
+            final NioUnnsafe unsafe = ch.unsafe();
+            if (!k.isValid()) {
+              unsafe.close(unsafe.voidPromise());
+              return;
+            }
+            int readyOps = k.readOps();
+            if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT))!=0 || readyOps == 0) {
+              unsafe.read();   //多态方法，接受客户端的TCP连接
+              if(!ch.isOpen()) {
+                 return;
+              }
+            }
+            //如果网络操作为写,说明有半包消息尚未发送
+            ch.unsafe().forceFlush();
+            //如果为连接状态，则需要对连接结果进行判读
+            XXX
+      }
+}
+```
+整体上有点多，看源码理一理。   
+
+run()方法在处理完processSelectedKeys方法后，执行runAllTasks()执行非I/O操作的系统Task和定时任务。**ps**：I/O事件和非I/O任务的CPU时间比例可以调整。   
+```text
+runAllTasks(long timeoutNanos) {
+  fetchFromDelayedQueue();
+  Runnable task = pollTask();
+  if (task == null) {
+    return false;
+  }
+}
+```

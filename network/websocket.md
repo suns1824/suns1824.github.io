@@ -11,4 +11,4 @@ WebSocket的目的是取代轮询和Comet技术(使用AJAX, 全双工通信，�
 应答信息返回，这样就建立起来了，直到某一方主动关闭连接。   
 为关闭WebSocket连接，客户端和服务端需要通过一个安全的方法关闭底层TCP连接以及TLS会话。
 
-ps: 得直到WebSocket和http一样，是应用层协议。
+ps: 得知道WebSocket和http一样，是应用层协议。

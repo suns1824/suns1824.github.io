@@ -22,7 +22,7 @@ Runnable--->Blocked：等待进入synchronized块/方法，反之是获取到锁
 
 ### Daemon线程
 一种支持性线程，被用作程序中后台调度以及支持性工作。 
-ps:当一个Java虚拟机种不存在非Daemon线程时，Java虚拟机会退出。但是Daemon线程中finally块不一定会执行。 
+ps:当一个Java虚拟机中不存在非Daemon线程时，Java虚拟机会退出。但是Daemon线程中finally块不一定会执行。 
 
 ## 启动和终止线程
 ### 构造线程
@@ -211,7 +211,7 @@ ReentrantLock中同步状态表示锁被一个线程重复获取的次数，读�
 ## Condition接口
 Condition与Object的监视器方法对比：XXX。   
 Condition定义了等待/通知两种类型的方法，当前线程调用这些方法时，需要提前获取到Condition对象关联的锁。Condition对象由Lock对象创建。    
-### 实现分析
+### 实现分析 
 ConditionObject(实现了Condition接口)是同步器AbstractQueuedSynchronizer的内部类，因为Condition操作需要获取象关联的锁，所以作为同步器内部类较为合理。   
 一个Condition包含一个等待队列。在Object的监视器模型上，一个对象拥有一个同步队列和一个等待队列；而并发包里的Lock（更确切地说是同步器）拥有一个同步队列和多个等待队列(一个同步器可以has多个Condition实例)。   
 Condition拥有首尾节点的引用，新增节点只需将原有的尾节点指向它，并且更新尾节点即可（不需要CAS保证，因为XXX）。   

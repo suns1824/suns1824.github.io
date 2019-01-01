@@ -22,4 +22,5 @@ Http响应消息
 >* 消息报头(响应报头)：允许服务器传递不能放在状态行中的附加响应信息XXX
 >* 响应正文
 
-[两种风格的WebService](https://blog.csdn.net/fly_zxy/article/details/78885685)
+[两种风格的WebService](https://blog.csdn.net/fly_zxy/article/details/78885685)   
+[Http和Https](https://juejin.im/entry/58d7635e5c497d0057fae036)
