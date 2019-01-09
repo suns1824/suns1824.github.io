@@ -2,7 +2,7 @@
 与Spark平台无关。**
 ## 概述
 ```text
-SQL Query --- (SparkSqlParser.parse) --- Unresolved LogicalPlan --- (Analyzer) --- Analyzed LogicalPlan --- (Optimizer) --- Optimized LogicalPlan**
+SQL Query --- (SparkSqlParser.parse) --- Unresolved LogicalPlan --- (Analyzer) --- Analyzed LogicalPlan --- (Optimizer) --- Optimized LogicalPlan
 ```
 分为3个阶段：
 >* SparkSqlParser中的AstBuilder执行节点访问，将语法树的各种Context节点转换为对应的LogicalPlan节点，从而成为一棵未解析的逻辑算子树(不包含数据信息和列信息)。
