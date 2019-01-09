@@ -6,7 +6,4 @@
 [IOC与DI](http://blog.xiaohansong.com/2015/10/21/IoC-and-DI/)
 [Spring事务](https://juejin.im/post/5b00c52ef265da0b95276091)
 
-
-[Mybatis大全1](https://hacpai.com/article/1517109910928)   
-
-[es倒排索引](https://zhuanlan.zhihu.com/p/33671444)
+[dubbo架构](https://www.jianshu.com/p/ef3ed5628016)
