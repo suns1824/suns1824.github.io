@@ -27,7 +27,7 @@ LogicalPlan仍是抽象类，根据子节点数目，绝大部分的LogicalPlan�
 >* UnaryNode， 数据的逻辑转换操作
 >* BinaryNode，包括join和集合操作以及CoGroup  
 
-## AstBuilder机制：UnResolved  
+## AstBuilder机制：UnResolved LogicalPlan生成
 如何从SQL抽象语法树生成相应的逻辑算子树：  
 **Spark SQL在ParserDriver中调用语法分析器的singleStatement()方法构建整个语法树，然后通过AstBuilder访问者类对语法树访问：**   
 ```text
