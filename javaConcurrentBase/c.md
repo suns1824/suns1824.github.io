@@ -67,7 +67,7 @@ shutDownNow：将线程池状态设为STOP，然后尝试关闭所有正在执�
 ## Executor框架
 Java线程既是工作单元也是执行机制。JDK5开始，把工作单元与执行机制分开来，工作单元包括Runnable和Callable，而执行机制有Executor框架提供。·  
 **Executor框架的两级调度模型：**
-![executor](../img/execu  tor1.jpg)  
+![executor](../img/executor1.jpg)  
 ps:HotSpot VM的线程模型中，Java线程被一对一映射为本地操作系统线程。   
 **Executor框架结构**
 主要由3大部分组成：

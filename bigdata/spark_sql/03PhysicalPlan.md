@@ -55,5 +55,96 @@ Partitioning定义了一个物理算子输出数据的分区方式，描述了Sp
 
 Partitioning也有多种具体实现，以HashPartitioning为例(在Aggregation和Join操作中被应用)：
 ```text
-
+case class HashPartitioning(expresssion: Seq[Expression], numPartitions: Int) extends Expression with Partitioning with Unevaluable {
+  override def satisfies(required: Distribution): Boolean = required match {
+    case UnspecifiedDistribution => true
+    case ClusteredDistribution(requiredClusering) => 
+      expressions.forall(x => requiredClustering.exists(_.semanticEquals(x)))
+    case _ => false
+  }
+  override def compatibleWith(other: Partitioning): Boolean = other match {
+    case o: HashPartitioning => this.semanticEquals(o)
+    case _ => false
+  }
+  override def guarantees(other: Partitioning): Boolean = other match {
+    case o: HashPartitioning => this.semanticEquals(o)
+    case _ => false
+  }
+}
 ```
+本例中涉及的几个SparkPlan的分区排序操作：
+```text
+//数据文件扫描执行算子，物理执行树种的叶子节点。分区排序信息会根据数据文件构造的初始的RDD进行设置。  
+//过滤执行算子与列剪裁执行算子，分区与排序的方式仍然沿用其子节点的方式，即不对RDD的分区与排序进行任何的重新操作。  
+具体看源码
+```
+## SparkPlan生成
+逻辑计划处理完毕后，会构造SparkPlanner并执行plan()方法对LogicalPlan进行处理，得到对应的物理计划，实际上得到的是一个物理计划列表(Iterator[SparkPlan])。  
+```text
+QueryPlanner[PhysicalPlan] <-- SparkStrategies <-- SparkPlanner
+```
+plan()方法实现在QueryPlanner类种。SparkStrategies类本身不提供任何方法，而是在内部提供一批SparkPlanner会用到的各种策略(Strategy)实现。最后，在SparkPlanner层面将这些策略整合在一起，通过plan()方法进行逐个应用。
+生成物理计划的实现代码如下所示：
+```text
+def plan(plan: LogicalPlan): Iterator[PhysicalPlan] = {
+  //生成物理计划候选集合，如果集合种存在PlanLater类型的SparkPlan，则通过placeholder中间变量取出对应的LogicalPlan后，递归调用plan()方法，将PlanLater替换为子节点的物理计划。
+  val candidates = strategies.iterator.flatMap(_(plan))
+  val plans = candiadtes.flatMap { candidate =>
+    val placeholders = collectPlaceholders(candidate)
+    if (placeholders.isEmpty) {
+      Iterator(candidate)
+    } else {
+      placeholders.iterator.foldLeft(Iterator(candidate)) {
+        case (candidatesWithPlaceholders, (placeholder, logicalplan)) => 
+          val childPlans = this.plan(logicalPlan)
+          candidatesWithPlaceholders.flatMap { candidateWithPlaceholders =>
+            childPlans.map { childPlan =>
+              candidateWithPlaceholders.transformUp {
+               case p if p == placeholder => childPlan
+              }
+            }    
+          }
+      }
+    }
+  }
+  //过滤去掉不够高效的物理计划，但目前这里没有实现呢
+  val pruned = prunePlans(plans)
+  asset(pruned.hasNext, s "No plan for $plan")
+  pruned
+}
+```
+### 物理计划Strategy体系
+参考SparkStrategies中各种策略的apply方法，作用是将传入的LogicalPlan转换为SparkPlan的列表。因此，Strategy是生成物理算子树的基础。  
+在实现上，各种Strategy会匹配传入的LogicalPlan节点，根据节点或节点组合的不同情形实现一对一的映射或多对一的映射。一对一映射以BasicOperators为例，该Strategy实现了各种基本操作的转换，
+其中列出了大量的映射关系，包括**Sort对应SortExec，Union对应UnionExec等**。多对一的情况涉及对多个LogicalPlan节点进行组合转换，这里称为逻辑算子树的模式匹配。   
+目前，在Spark SQL中，逻辑算子树的节点模式有4种：
+>* ExtractEquiJoinKeys
+>* ExtractFiltersAndInnerJoins
+>* PhysicalAggregation
+>* PhysicalOperation: 匹配逻辑算子树中的Project和Filter等节点，返回投影列，过滤条件集合和子节点。
+
+```text
+GenericStrategy[PhysicalPlan <: TreeNode[PhysicalPlan]] <-- SparkStrategy(各种strategy)
+```
+### 常见Strategy分析
+在SparkPlanner中默认添加了8种Strategy(2.1版本，2.3是10种)来生成物理计划，具体查看源码。  
+理解之前案例中LogicalPlan到SparkPlan是如何转换的。**2.1和2.3的实现貌似略有不同，待考证**   
+
+## 执行前的准备
+物理计划的生成意味着用户的SQL语句已经成功转换为SparkPlan物理算子树。但是提交给Spark系统执行之前需要完成若干准备工作，对树形结构的物理计划进行全局的整合处理或优化，具体如下：
+```text
+lazy val executedPlan: SparkPlan = prepareForExecution(sparkPlan)
+//处理过程基于若干规则，主要包括对Python中UDF的提取，子查询的计划生成等
+protected def prepareForExecution(plan: SparkPlan): SparkPlan = {
+  preparations.foldLeft(plan) { case (sp, rule) => rule.apply(sp) }
+}
+```   
+物理执行计划的准备规则：
+>* python.ExtractPythonUDFs  
+>* PlanSubqueries: 特殊子查询物理计划处理
+>* EnsureRequirements: 确保执行计划分区与排序正确性
+>* CollapseCodegenStages: 代码生成相关，涉及到Tungshen，后续分析
+>* ReuseExchange: Exchange节点重用
+>* ReuseSubquery: 子查询重用
+
+各个规则详细实现参考源码，重点是EnsureRequirements规则。     
