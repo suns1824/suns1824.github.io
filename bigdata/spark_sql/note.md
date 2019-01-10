@@ -10,3 +10,5 @@ lazy val sparkPlan: SparkPlan = {
     planner.plan(ReturnAnswer(optimizedPlan)).next()
   }
 ```
+
+2. 2.1中ExchangeCoordinator功能相对简单，仅用于确定Shuffle后的分区数目。  
