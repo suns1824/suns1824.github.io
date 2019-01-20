@@ -12,3 +12,7 @@ lazy val sparkPlan: SparkPlan = {
 ```
 
 2. 2.1中ExchangeCoordinator功能相对简单，仅用于确定Shuffle后的分区数目。  
+
+
+不解之处：  
+1. 同一个窗口可能对应多个窗口表达式？  
