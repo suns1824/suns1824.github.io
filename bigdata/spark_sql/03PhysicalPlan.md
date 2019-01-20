@@ -1,4 +1,4 @@
-**物理计划时Spark SQL整个查询处理流程的最后一步，与底层平台紧密相关。在此阶段，Spark SQL会对生成的逻辑算子树进一步处理，得到物理算子树，并将LogicalPlan节点及其所包含的各种信息映射成Spark Core计算模型的元素，
+**物理计划是Spark SQL整个查询处理流程的最后一步，与底层平台紧密相关。在此阶段，Spark SQL会对生成的逻辑算子树进一步处理，得到物理算子树，并将LogicalPlan节点及其所包含的各种信息映射成Spark Core计算模型的元素，
 如RDD，Transformation，Action等。**
 ## Spark SQL物理计划概述
 从Optimized LogicalPlan传入到Spark SQL物理计划提交并执行，主要经过3个阶段：
