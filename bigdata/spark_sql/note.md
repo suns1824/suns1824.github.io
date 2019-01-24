@@ -12,7 +12,7 @@ lazy val sparkPlan: SparkPlan = {
 ```
 
 2. 2.1中ExchangeCoordinator功能相对简单，仅用于确定Shuffle后的分区数目。  
-
+3. 2.1中Join的实现还有很大的优化空间，基于代价的多表优化机制(提升重点)。
 
 不解之处：  
 1. 同一个窗口可能对应多个窗口表达式？  
