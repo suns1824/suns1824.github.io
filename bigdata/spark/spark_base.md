@@ -1,4 +1,8 @@
-## RDD编程模型 
+## Spark基础知识
+[大佬论文](http://static.usenix.org/legacy/events/hotcloud10/tech/full_papers/Zaharia.pdf)   
+[RDD基本算子大全](http://lxw1234.com/archives/2015/07/363.htm)  
+
+### RDD编程模型 
 RDD(弹性分布式数据集)直接在编程接口层面提供了一种高度受限的共享内存模型，本质是一种分布式的内存抽象，表示一个只读的数据分区集合。一个RDD通常由其他RDD转换而来。RDD定义了各种丰富的转换操作(map,join,filter)
 ，通过这些转换操作，新的RDD包含了如何从其他RDD衍生所必需的消息，这些信息构成了RDD之间的依赖关系。依赖具体分为两种：窄依赖----RDD之间分区是一一对应的，宽依赖----下游RDD与上游RDD(父RDD)的每个分区都有关，是多对多的关系。
 窄依赖中的所有转换操作可以通过pipeline的方式执行，宽依赖需要在不同的节点之间shuffle传输。RDD操作算子：transformation(用来将RDD转换，构建RDD的构建关系)和action(用来触发RDD的计算，包括show,count,collect,saveAsTextFile)。
