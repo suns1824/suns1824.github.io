@@ -23,8 +23,6 @@ PhysicalAggregation策略在提取信息时会进行一下转换：
 >* Complete模式
 
 Partial模式和Final模式一般组合在一起使用，对应Map和Reduce阶段。Complete模式的最终阶段直接针对原始数据。PartialMerge模式 聚合函数主要时对聚合缓冲区进行合并。   
-#### DeclarativeAggregate聚合函数
-#### InperativeAggregate聚合函数
 
 ### 聚合函数
 聚合函数是聚合查询中非常重要的元素。   
