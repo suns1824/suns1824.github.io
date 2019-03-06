@@ -1,3 +1,4 @@
+[Spark SQL基础教程](https://www.jianshu.com/p/e02bc3da179b)  
 ```text
 val spark = new SparkSession.builder().appName("sql_example").master("local").getOrCreate()
 spark.read.json("student.json").createOrReplaceTempView("student")  //创建数据表并读取数据
