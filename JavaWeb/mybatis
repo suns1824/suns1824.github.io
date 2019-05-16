@@ -119,6 +119,7 @@ private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionI
         return var8;
     }
 ```
+DefaultSqlSession实现：
 ```text
 private static void registerSessionHolder(SqlSessionFactory sessionFactory, ExecutorType executorType,PersistenceExceptionTranslator exceptionTranslator, SqlSession session) {
     SqlSessionHolder holder;
@@ -129,8 +130,8 @@ private static void registerSessionHolder(SqlSessionFactory sessionFactory, Exec
         holder = new SqlSessionHolder(session, executorType, exceptionTranslator);
         //将sessionholder存放到resources这个ThreadLocal变量中
         TransactionSynchronizationManager.bindResource(sessionFactory, holder);
-        TransactionSynchronizationManager.registerSynchronization(new SqlSessionSynchronization(holder, sessionFactory));
         //把holder绑定到当前的事务管理中
+        TransactionSynchronizationManager.registerSynchronization(new SqlSessionSynchronization(holder, sessionFactory));
         holder.setSynchronizedWithTransaction(true);
         //引用计数加一
         holder.requested();
@@ -150,8 +151,9 @@ public static void closeSqlSession(SqlSession session, SqlSessionFactory session
     }
   }
 ```
-总结：通过ThreadLocal保证了DefaultSqlSession的线程安全性。   
+总结：通过ThreadLocal保证了DefaultSqlSession的线程安全性。至于SqlSessionManager大同小异，都是使用了ThreadLocal，前者把sqlSession共用的权限交给了Spring管理(与Spring事务管理器建立关联)，后者需要调用者自行决定。   
 
-ps:
+ps:  
 事务内使用synchronized时，无法保证数据一致性！！！！！  
 [附一篇关于ThreadLocal解决线程安全问题的博客](https://blog.csdn.net/qq_20128967/article/details/81019199)
+后一篇：Mybatis中设计模式总结
