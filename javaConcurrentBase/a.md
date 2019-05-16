@@ -204,7 +204,7 @@ volatile内存语义的实现:编译器在生成字节码时,会在指令序列�
     }
   }
 ```
-ReentrantLock使用公平锁时,ReentrantLock:lock() --  FairSync:lock() -- AQS: acquire(int) -- ReentrantLock: tryAcquire(int)
+ReentrantLock使用公平锁时,ReentrantLock:lock() --  FairSync:lock() -- AQS: acquire(int) -- AQS: tryAcquire(int)
 ps:AQS使用一个state来维护同步状态(一个整型的volatile变量)
 ```java
   protected final boolean tryAcquire(int acquires) {

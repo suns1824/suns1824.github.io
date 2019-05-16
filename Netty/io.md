@@ -10,7 +10,8 @@ Unix网络编程中5种I/O模型：
 >* 异步IO：告知内核启动某个操作，并让内核在整个操作完成后通知我们。
  
 理解5种IO模型的关键之一：理解何时阻塞何时正常执行
-[相关链接](https://blog.csd49n.net/fgf00/article/details/52793739)
+[相关链接](https://blog.csdn.net/fgf00/article/details/52793739)   
+[阻塞同步](https://blog.csdn.net/yyxyong/article/details/62894064)  
 
 ### I/O多路复用
 I/O编程过程种，当要同时处理多个客户端接入请求时，可以利用多线程或者I/O多路复用技术。后者通过把多个I/O的阻塞复用到同一个select的阻塞上，从而使得系统可以在单线程的情况下同时处理多个客户端请求。与传统的多线程模型相比，I/O多路复用的最大优势是系统开销小。  
@@ -33,8 +34,7 @@ Buffer是一个对象，包含一些要写入或者读出的数据。在NIO库�
 #### 通道Channel
 通道与流不同之处在于通道是双向的。Channel全双工，所以更好地映射底层操作系统的API（UNIX网络编程模型中，底层操作系统的通道都是全双工的，同时支持读写操作）。
 #### 多路复用器Selector
-多路复用器不断轮询注册在其上的Channel(epoll机制使得数量没有限制)，如果某个Channel上面发生读/写时间，这个Channel就处于就绪状态，会被Selcetor轮询出来，然后通过SelectionKey可以获取就绪Channel的集合，进行后续的I/O操作。
-
+多路复用器不断轮询注册在其上的Channel(epoll机制使得数量没有限制)，如果某个Channel上面发生读/写时间，这个Channel就处于就绪状态，会被Selcetor轮询出来，然后通过SelectionKey可以获取就绪Channel的集合，进行后续的I/O操作。   
 **源码见SparkPro工程netty包**    
 总结一下NIO编程优点：
 >* 客户端发起的连接操作是异步的，可以通过在多路复用器注册OP_CONNECT等待后续结果，不需要像之前的客户端那样被同步阻塞

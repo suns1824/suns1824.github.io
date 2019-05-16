@@ -1,0 +1,157 @@
+###使用SqlSessionTemplate
+个人感觉Spring和Mybatis搭配时最好的方式是使用使用SqlSessionTemplate。  
+database.xml:
+```text
+<bean id="bbsSqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"
+p:dataSource-ref="bbsDataSource" p:mapperLocations="classpath*:mybatis/*/*.xml"/>
+<bean id="bbsMybatisTemplate" class="org.mybatis.spring.SqlSessionTemplate" c:_0-ref="bbsSqlSessionFactory"/>
+```
+以广告位查询为例：
+```text
+@Component
+public class AdDao {
+@Resource(name = "bbsMybatisTemplate")
+private SqlSessionTemplate sqlSessionTemplate;
+
+public List<AdDao> queryList(int adPositionId, int num) {
+  Map<String, Object> param = new HashMap<String, Object>();
+  param.put("adPositionId", adPositionId);
+  param.put("num", num);
+  long currentTimeStamp = System.currentTimeMillis() / 1000;//当前秒时间戳
+  param.put("currentTimeStamp", currentTimeStamp);
+  return this.sqlSessionTemplate.selectList("Advertisement.queryAdList", param);
+}
+}
+```
+```text
+<mapper namespace = "Advertisement">
+      <resultMap id="advertisementResultMap" type="com.wacai.bbs.dal.dataobject.AdDO">
+          <result property="advertisementId" column="advid" />
+          <result property="title" column="title" />
+          <result property="parameters" column="parameters" />
+          <result property="code" column="code" />
+      </resultMap>
+      <sql id="advertisementColumn">
+          advid,title,parameters,code
+      </sql>
+      <select id="queryAdList" parameterType="java.util.Map" resultMap="advertisementResultMap">
+              select
+              <include refid="advertisementColumn"/>
+              from common_advertisement
+              where customid = #{adPositionId}
+              and available = 1
+              and (starttime <![CDATA[ <= ]]> #{currentTimeStamp} or starttime = 0 )
+              and (endtime <![CDATA[ >= ]]> #{currentTimeStamp} or endtime = 0 )
+              order by advid desc
+              limit #{num}
+       </select>
+</mapper>
+```
+方法还有很多，比如使用MapperFactoryBean不需要写mapper的xml文件，直接在mapper接口写sql即可。  
+
+### SqlSessionTemplate是如何保证线程安全性的
+```text
+public SqlSessionTemplate(SqlSessionFactory sqlSessionFactory, ExecutorType executorType, PersistenceExceptionTranslator exceptionTranslator) {
+  ...
+  //使用JDK动态代理
+  this.sqlSessionProxy = (SqlSession) newProxyInstance(SqlSessionFactory.class.getClassLoader(), new Class[]{SqlSession.class}, new SqlSessionInterceptor());
+}
+
+private class SqlSessionInterceptor implements InvocationHandler {
+  @override
+  public Object invoke(Object proxy, Method method, Object[] args) {
+    SqlSession sqlSession = getSqlSession(SqlSessionTemplate.this.sqlSessionFactory, SqlSessionTemplate.this.executorType, SqlSessionTemplate.this.exceptionTranslator);
+    try {
+      Object result = method.invoke(sqlSession, args);
+      ...
+    } catch (Throwable t) {
+        ...
+    } finally {
+        if (sqlSession != null) {
+          closeSqlSession(sqlSession, SqlSessionTemplate.this.sqlSessionFactory);
+        }
+    }
+  }
+}
+```
+进入到getSqlSession方法中：
+```text
+public static SqlSession getSqlSession(SqlSessionFactory sessionFactory, ExecutorType executorType, PersistenceExceptionTranslator exceptionTranslator) {
+    ... 
+    /*
+    TransactionSynchronizationManager中有一个名为resources的ThreadLocal变量，缓存了一个sessionFactorty为key的,sessionHolder 为value的map, 从而保证每个线程都有自己的sqlsession，执行时没有线程同步问题。     
+    getResource通过ThreadLocal获取SqlSessionHolder对象。
+    */
+    SqlSessionHolder holder = (SqlSessionHolder) TransactionSynchronizationManager.getResource(sessionFactory);
+    //从holder中取出SqlSession，该方法中有一个holder.requested方法，用来将引用次数加一
+    SqlSession session = sessionHolder(executorType, holder);
+    if (session != null) {
+      return session;
+    }
+    ...
+    //如果为空，建立一个SqlSession对象，一般在xml中或者注解中配置的是SqlSessionFactoryBean，实现了FactoryBean接口，创建的是DefaultSqlSessionFactory对象
+    session = sessionFactory.openSession(executorType);
+    //该方法内将这个session存放到ThreadLocal变量,具体细节见下文。
+    registerSessionHolder(sessionFactory, executorType, exceptionTranslator, session);
+    return session;
+ }
+```
+其中的openSession方法调用了openSessionFromDataSource方法，该方法实现如下：
+```text
+private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionIsolationLevel level, boolean autoCommit) {
+        Transaction tx = null;
+        DefaultSqlSession var8;
+        try {
+            Environment environment = this.configuration.getEnvironment();
+            //从Enviroment中获取TransactionFactory，Spring结合Mybatis时使用的是SpringManagedTransactionFactory。
+            TransactionFactory transactionFactory = this.getTransactionFactoryFromEnvironment(environment);
+            //开启新事务
+            tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
+            Executor executor = this.configuration.newExecutor(tx, execType);
+            //创建DefaultSqlSession
+            var8 = new DefaultSqlSession(this.configuration, executor, autoCommit);
+        } catch (Exception var12) {
+            this.closeTransaction(tx);
+            throw ExceptionFactory.wrapException("Error opening session.  Cause: " + var12, var12);
+        } finally {
+            ErrorContext.instance().reset();
+        }
+        return var8;
+    }
+```
+```text
+private static void registerSessionHolder(SqlSessionFactory sessionFactory, ExecutorType executorType,PersistenceExceptionTranslator exceptionTranslator, SqlSession session) {
+    SqlSessionHolder holder;
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      Environment environment = sessionFactory.getConfiguration().getEnvironment();
+      if (environment.getTransactionFactory() instanceof SpringManagedTransactionFactory) {
+        //创建sessionholder
+        holder = new SqlSessionHolder(session, executorType, exceptionTranslator);
+        //将sessionholder存放到resources这个ThreadLocal变量中
+        TransactionSynchronizationManager.bindResource(sessionFactory, holder);
+        TransactionSynchronizationManager.registerSynchronization(new SqlSessionSynchronization(holder, sessionFactory));
+        //把holder绑定到当前的事务管理中
+        holder.setSynchronizedWithTransaction(true);
+        //引用计数加一
+        holder.requested();
+      } 
+}
+```
+closeSqlSession的实现大致如下：
+```text
+public static void closeSqlSession(SqlSession session, SqlSessionFactory sessionFactory) {
+    SqlSessionHolder holder = (SqlSessionHolder) TransactionSynchronizationManager.getResource(sessionFactory);
+    if ((holder != null) && (holder.getSqlSession() == session)) {
+      //引用次数减一
+      holder.released();
+    } else {
+      //关闭session
+      session.close();
+    }
+  }
+```
+总结：通过ThreadLocal保证了DefaultSqlSession的线程安全性。   
+
+ps:
+事务内使用synchronized时，无法保证数据一致性！！！！！  
+[附一篇关于ThreadLocal解决线程安全问题的博客](https://blog.csdn.net/qq_20128967/article/details/81019199)
