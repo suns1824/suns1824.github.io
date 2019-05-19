@@ -9,7 +9,7 @@ Unix网络编程中5种I/O模型：
 >* 信号驱动IO模型：开启socket信号驱动IO功能，并通过系统调用sigaction执行一个信号处理函数，当数据准备就绪时，为该进程生成一个sigio信号（在此之前进程不被阻塞），通过信号回调通知进程调用recvfrom读取数据（阻塞）并处理数据。
 >* 异步IO：告知内核启动某个操作，并让内核在整个操作完成后通知我们。
  
-理解5种IO模型的关键之一：理解何时阻塞何时正常执行
+理解5种IO模型的关键之一：理解何时阻塞何时正常执行  
 [相关链接](https://blog.csdn.net/fgf00/article/details/52793739)   
 [阻塞同步](https://blog.csdn.net/yyxyong/article/details/62894064)  
 

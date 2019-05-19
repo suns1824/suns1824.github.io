@@ -1,0 +1,228 @@
+### Redis基础数据结构
+五种基本的数据结构：string、list、set、hash、zset。除此之外还有其他的数据结构如Hyperloglog，Bitmap等。
+redis中所有的数据结构都是k-v键值对的形式，不同的数据结构其value结构不同。  
+
+#### string(字符串)
+常见场景：缓存用户信息，json序列化为字符串，取出用户信息时也会反序列化。   
+redis的字符串是动态字符串，是可以修改的字符串，内部结构类似于Arraylist,当字符串长度小于1M时，capacity << 1;如果超过了1M，每次扩容只会多扩1M，最大字符串长度为512M。
+```text
+> set name raysurf
+> get name
+> exists name // (integer) 1
+> del name
+> get name  // nil
+
+//批量键值对
+> set name1 raysurf
+> set name2 atama
+> mget name1 name2 name3
+1) raysurf
+2) atama
+3) nil
+> mset name1 a name2 b name3 c
+> mget name1 name2 name3
+1) a
+2) b
+3) c
+
+//过期和set命令扩展
+> set name raysurf
+> get name
+raysurf
+> expire name 5  # 5s过期
+//等待5s后查询
+> get name
+nil
+
+//setex等价于set + expire
+> setex name 5 raysurf
+
+//setnx表示如果key不存在就执行set创建
+> setnx name raysurf
+
+//计数功能，如果value是一个整数，可以对其进行自增，范围：unsigned long
+> set count 0
+> incr count  //1
+> incrby count 5 //6
+>incrby count -5 //1
+```
+
+#### list(列表)
+类似于LinkedList，list是链表不是数组，所以它的插入和删除时间复杂度是O(1),但是通过索引查找很慢，时间复杂度是O(n)。   
+```text
+队列
+> lpush name a b c
+> llen name 
+3
+> lpop name  
+a
+> lpop name 
+b
+
+栈
+> rpush name a b c
+> rpop name 
+c
+> rpop name
+b
+> rpop name
+a
+
+//lindex相当于LinkedList的get(int index)，index为负表示取链表倒数第X个元素；ltrim有两个参数start_index和end_index，用来截取链表，可以用来实现一个定长的链表。
+//lrange name start end
+```
+list的实现不仅仅是一个简单的linkedlist，而是一个quicklist的数据结构。在list元素较少时会使用一块连续的内存存储，称为ziplist；数据量多的时候会改成quicklist。quicklist
+是将链表(节点带有双向指针)和ziplist结合。
+
+#### hash(字典)
+相当于HashMap，无序字典，redis的字典的值只能是字符串。  
+Redis为了高性能，采用了渐进式rehash策略：在rehash的同时，保留新旧两个hash结构,查询时会查询两个hash结构，在后续的定时任务和hash操作中逐渐将就的hash内容转移到
+新的hash结构中。  
+hash也可以用来存储用户信息，相比string更优，hash可以对用户结构中的每个字段单独存储，而string需要序列化整个对象。相对于string，缺点就是hash存储消耗更大。
+```text
+> hset job java "java-dev"
+(integer) 1
+> hset job c "c-dev"
+(integer) 1
+> hgetall job
+> hlen job
+> hget job java
+> hset job java "java-assit"
+(integer) 0 //更新操作，返回0
+> hset people man "a" woman "b" middle "38"
+
+//也提供计数功能，和字符串的incr类似
+> hincrby user age 1
+(integer) 10
+```
+
+#### set(集合)
+相当于HashSet。
+```text
+> sadd name atama
+(integer) 1
+> sadd name atama
+(integer) 0  //重复
+> sadd name raysurf
+> smembers name
+> sismember name sunqi
+> scard name  //获取长度
+(integer) 2
+> spop name
+```
+
+#### zset(有序集合)
+```text
+> zadd movie 9.1 "hahaha"
+> zadd movie 8.4 "heiheihei"
+> zadd movie 8.8 "aaa"
+> zrange movie 0 -1
+1) "heiheihei"
+2) "aaa"
+3) "hahaha"
+> zrerange movie 0 -1
+> zcard books
+> zscore movie "aaa"
+> zrank movie "aaa"
+(integer) 1
+> zrangebyscore movie 0 9.0 //根据score区间，可用于分页处理
+> zrem movie "aaa"
+```
+zset的底层是跳跃列表，实现了类似二分查找的方式支持快速位置定位(普通链表做不到)。
+
+## Redis应用
+### 分布式锁
+分布式应用中时常会出现并发问题。
+```text
+> set lock true ex 5 nx
+OK
+do something ...
+> del lock
+```
+Redis分布式锁不适用于执行较长时间的任务，逻辑执行时间超出了锁的超时限制，会导致临界区代码尚 未执行完第二个线程就重新持有了锁,从而会导致数据错乱。   
+如果还是出现了‘数据错乱，可以通过如下方法尽量保证逻辑正确，虽然还是无法防止其他线程进入：
+```text
+//使用随机数
+random = random.nextint()
+if redis.set(key, random, nx = True, ex = 5)
+   doSomeThing()
+   //该方法可通过lua脚本保证匹配value和del操作的原子性得到保证
+   redis.delifequals(key, tag)
+```
+## 常见面试题：
+#### Redis为什么这么块？
+>* 完全基于内存
+>* Redis中的数据结构是专门设计的
+>* 单线程，避免了不必要的上下文切换，不用考虑锁相关的问题（基于内存，CPU不是Redis的瓶颈，瓶颈可能是内存或带宽）
+>* 使用I/O多路复用模型，非阻塞I/O
+>* 底层设计改进，自己构建了VM机制
+
+#### redis和memcache比较
+memcache 处理小型静态数据更好，内存管理简单高效，性能高些，同时横向扩展好些；redis支持多种数据结构，提供更多的命令/功能，redis容易有内存碎片；memcache试用lru回收对象，redis使用多种
+策略更加精确(见下文缓存更新)。
+
+#### 缓存雪崩：原有缓存失效，新的缓存还没到。  
+>* 加锁排队，很少使用，因为用户体验不好；
+>* 添加缓存标记，来记录缓存是否失效，如果失效那么更新缓存：
+```text
+public List getList(String cacheKey, String cacheSign) {
+  int cacheTime = 30;
+  String sign = CacheHelper.get(cacheSign);
+  String cachValue = CacheHelper.get(cacheKey);
+  if (sign != null) {
+    return cacheValue
+  } else {
+    CacheHelper.add(cacheSign, "1", cacheTime);
+    cacheValue = getFromDb();
+    CacheHelper.add(cacheKey, cacheValue, cacheTime * 2);
+    return cacheValue;
+  }
+}
+```
+>* 为key设置不同的缓存失效时间，避免集体失效。
+
+#### 缓存穿透:
+用户查询数据，数据库中没有，缓存中自然也没有，导致进行了两次无用查询。     
+解决办法：
+>* 使用布隆过滤器，将所有可能存在的数据Hash到一个足够大的bitmap上，一定不存在的数据会被这个bitmap拦截掉，避免了对叠层存储系统
+的查询压力。
+>* 查询缓存和数据库后为空，仍然将这个空结果放到缓存里，但设置过期时间短一些，不超过5分钟，那么下一次查询缓冲中就有值了。
+
+#### 缓存预热
+思路：    
+1). 写个缓存刷新页面，上线时手工操作一下；  
+2). 数据量不大的时候，项目启动时自动进行加载；  
+3). 定时刷新缓存。  
+
+#### 缓存更新  
+redis中提供了默认的6种内存失效策略(当内存不够时)：
+>* noeviction: 内存不足以容纳新写入数据时，写入操作会报错
+>* allkeys-lru: 内存不足以容纳新写入数据时，在键空间移除最近最少使用的key
+>* allkeys-random: ...随机移除某个key
+>* volatile-random: ...在设置了过期时间的键空间内随机移除某个key
+>* volatile-lru: ... ...
+>* volatile-ttl: 当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，有更早过期时间的key优先移除。
+
+Redis如何处理过期的key,通常有三种方式：
+>* 定时定期：每个设置过期时间的key都要创建一个定时器，到时自动清除过期数据(内存优化，但是消耗CPU)
+>* 惰性过期：只有访问一个key时，才会判断该key是否已过期，节省CPU，但是对内存不友好
+>* 定期过期：每隔一段时间扫描一定数量的expire字典种的key，清除其中已过期的key
+
+Redis的内存淘汰策略的选取并不会影响过期的key的处理。内存淘汰策略用于处理内存不足时的需要申请额外空间的数据；过期策略用于处理过期的缓存数据。
+
+#### 缓存降级  
+在降级之前需要对系统进行梳理，梳理出哪些服务可以降级，哪些要保住，可以参考日志界别设置方案：  
+
+1) 一般： 有些服务偶尔因为网络抖动或服务正在上线而超时，可以自动降级；       
+2) 警告： 有些服务一段时间内成功率有波动，可以自动降级并发送警告；   
+3) 错误： 成功率低于90%，或者数据库连接池被打爆等，根据情况自动降级或人工降级；  
+4) 严重错误： 紧急人工降级。
+
+
+#### 数据库和缓存双写一致性问题
+https://blog.csdn.net/xlgen157387/article/details/80389101
+#### 一致性Hash算法
+https://blog.csdn.net/xlgen157387/article/details/79544524
+#### 冷热数据处理
+lazyfree：开启一个bio，防止big key删除对主线程阻塞 UNLINK  FLUSHALL FLUSHDB。
+[redis冷热数据处理](https://xiking.win/2018/09/30/redis-hot-cold-data-seperation-bio/)
