@@ -49,4 +49,4 @@ NIO2.0引入了新的异步通道的概念，并提供了异步文件通道和�
 NIO2.0的异步套接字通道是真正的异步非阻塞I/O，对应于UNIX网络编程的事件驱动I/O(AIO)。它不需要通过Selector对注册的通道进行轮询操作即可实现异步读写，从而简化了NIO的编程模型。   
 **代码在XXX**
 
-延申： 编解码技术，序列化和ByteBuffer的二进制编解码技术对比， Protobuf。
+延申： 编解码技术，序列化和ByteBuffer的二进制编解码技术对比， Protobuf，[边缘触发和水平触发](https://blog.csdn.net/lihao21/article/details/67631516)。
