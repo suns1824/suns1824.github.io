@@ -354,7 +354,6 @@ consumer各种位置信息：
 >*  上次提交的位移；
 >*  当前位置；
 >*  水位：分区日志中的概念，水位以下的所有消息，consumer都可以读取，水位以上的消息不能读取；
->*  水位：分区日志中的概念，水位以下的所有消息，consumer都可以读取，水位以上的消息不能读取；
 >*  日志终端位移（LEO）： 分区日志中的概念，标识某个分区副本当前保存消息对应的最大位移值(只有分区所有副本都保存了某条消息，该分区的leader副本才会向上移动水位值)。
 
 consumer会在Kafka集群的所有broker中选择一个broker作为consumer group的coordinator，用于实现组成员管理，消息分配方案以及提交位移等。   
@@ -452,8 +451,20 @@ final AtomicLong totalRebalanceTimeMs = new AtomicLong(0L);
 ```
 ### 多线程消费实例
 #### 每个线程维护一个KafkaConsumer
+[见](https://github.com/suns1824/Jinx/tree/master/src/main/java/com/raysurf/test/kafka/example/consumer/a)
 #### 单KafkaConsumer实例+多worker线程
+[见](https://github.com/suns1824/Jinx/tree/master/src/main/java/com/raysurf/test/kafka/example/consumer/b)   
+两者的比较：   
 
+|         | 优势   |  劣势  |
+| --------   | -----:  | :----:  |
+| 每个线程维护一个KafkaConsumer实例     | 实现简单，无线程间交互开销；方便位移管理，易于维护分区间的消息消费顺序 |   socket连接开销大，consumer数量受限于topic分区数，扩展性差；broker端负载大(请求数增加)；rebalance可能性增大   |
+| 一个/多个kafkaConsumer+多个worker线程   | 消息获取和处理解耦，扩展性好   | 难于维护分区内的消息顺序；处理链路增加，导致位移管理困难；worker线程异常可能导致消费数据丢失。   |
 
+## Kafka设计原理
+### broker端设计架构
+### producer端设计架构
+### consumer端设计架构
+### 实现精确一次处理语义 
 
 
