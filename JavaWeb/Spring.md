@@ -3,6 +3,23 @@
 [IOC与DI](http://blog.xiaohansong.com/2015/10/21/IoC-and-DI/)  
 [FactoryBean原理](https://blog.csdn.net/u013185616/article/details/52335864)
 
+## 常用配置和话题
+>* Scope
+>* Spring EL: @Value
+>* 初始化和销毁：@Bean的initMethod和destroyMethod | JSR-250的@PostConstruct和@PreDestroy
+>* @Profile:为不同环境下使用不同的配置提供了支持
+>* 事件(Application Event)
+>* Spring Aware: 使得bean能够获得Spring容器提供的服务
+>* 任务执行器(TaskExecutor)
+>* 计划任务(@Scheduled)
+>* @Conditiional:根据满足某一条件创建一个bean
+>* @Enable*的工作原理：使用@import导入配置类
+
+
+### Spring MVC
+1. 理解MVC和三层架构的关系（展示层(MVC)+应用层+数据访问层）   
+
+
 ## Spring Boot创建Beans的过程分析|启动流程分析
 SpringApplication的run方法：
 ```text
@@ -122,8 +139,8 @@ public interface TransactionDefinition {
   幻读：一个事务内第二次读取到了第一次读取时不存在的数据。
   五种隔离级别：
   ISOLATION_DEFAULT：使用后端数据库默认的隔离级别，MySql默认REPEATABLE_READ隔离级别，Oracle默认为READ_COMMITED；
-  ISOLATION_READ_UNCOMMITED：读已提交，导致脏读、幻读和不可重复读；
-  ISOLATION_READ_COMMITED: 防止脏读，不能防止幻读和不可重复读；
+  ISOLATION_READ_UNCOMMITED：读未提交，导致脏读、幻读和不可重复读；
+  ISOLATION_READ_COMMITED: 读已提交，防止脏读，不能防止幻读和不可重复读；
   ISOLATION_REPEATABLE_READ：防止脏读和不可重复读，但是幻读仍可能发生；
   ISOLATION_SERIALIZATION: 完全服从ACID的隔离级别，所有事务依次逐个执行，互不干扰。
   七种传播行为：

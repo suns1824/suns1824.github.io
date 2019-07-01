@@ -16,3 +16,6 @@
  >* 公平调度器
  
  使用容量调度器时有一个专门的队列保证小作业一提交就可以启动，公平调度器会在所有运行的作业之间动态平衡资源。
+ 
+ [yarn三大模块](https://www.cnblogs.com/BYRans/p/5513991.html)   
+ [spark的yarn-client模式和yarn-cluster模式](https://www.iteblog.com/archives/1223.html)

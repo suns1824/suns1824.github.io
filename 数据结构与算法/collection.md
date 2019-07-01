@@ -9,7 +9,8 @@ segment大小的count字段和用于存储值的HashEntry的value。这里可以
 CAS实现非阻塞算法实现的线程安全的队列
 
 ## List
-[为什么没有线程安全的Arraylist](http://ifeve.com/why-is-there-not-concurrent-arraylist-in-java-util-concurrent-package/)  
+[为什么没有线程安全的Arraylist](http://ifeve.com/why-is-there-not-concurrent-arraylist-in-java-util-concurrent-package/)     
+[CopyOnWriteArrayList和Collections.synchronizedList比较](https://www.cnblogs.com/yan456jie/p/5369366.html)  
 Vector是线程安全的：
 ```java
 public class Test {
@@ -52,4 +53,8 @@ class SampleTask implements Runnable {
 ```text
 List list= Collections.synchronizedList(new LinkedList());
 ```
-需要注意的是，迭代这个list时需要**synchronized(list)**,因为XXX。
+需要注意的是，迭代这个list时需要**synchronized(list)**,因为iterator方法没有实现同步。Collections类中有一个SynchronizedCollection类，这个类有一个
+成员变量mutex，除了迭代和stream流外的绝大多数操作都使用了synchronized(mutex)实现了线程同步。SynchronizedList继承了这个类。
+
+
+## 阻塞队列
