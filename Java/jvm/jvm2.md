@@ -112,7 +112,7 @@ GC Roots:
 [思考:为什么需要有survivor区以及为什么要有两个](https://blog.csdn.net/antony9118/article/details/51425581)
 
 ## 垃圾收集器
-[跳转至](./gc.md)
+[跳转至](gc.md)
 
 # 类文件结构
 口号:一次编写,到处运行  

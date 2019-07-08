@@ -8,7 +8,7 @@
 
 # 服务端创建
 创建SerBootStrap实例，时序图如下：
-![pic1](../img/server1.jpg)  
+![pic1](../img/netty_server.png)  
 >* ServerBootStrap是Netty服务端的启动辅助类，Builder模式
 >* 设置绑定Reactor线程池，Netty的线程池是EventLoopGroup--EventLoop数组。EventLoop职责：处理所有注册到
 本线程多路复用器Selector上的Channel，Selector的轮询操作由绑定的EventLoop线程run方法驱动，在一个循环体内循环执行。
@@ -18,7 +18,7 @@ EventLoop的职责：处理网络I/O；处理用户自定义task和定时任务t
 的形式在ChannelPipline中流转，由ChannelPipeline根据网络事件的类型调度ChannelHandler的执行
 >* 初始化ChannelPipeline后，添加并设置ChannelHandler。~是Netty提供给用户定制和扩展的关键接口
 >* 绑定并监听端口
->* electorS轮询，由Reactor线程NioEventLoop负责调度和执行Selector轮询操作
+>* Selector轮询，由Reactor线程NioEventLoop负责调度和执行Selector轮询操作
 >* 轮询到就绪channel后，由Reactor线程NioEventLoop执行ChannelPipeline的相应方法，最终调度并执行ChannelHandler:
 >* 执行Netty系统Channelhandler和用户定制的ChannelHandler。
 

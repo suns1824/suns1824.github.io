@@ -1,0 +1,14 @@
+1.ClassLoader模型,Extention ClassLoader作用，如何设计一个插件系统？
+2.sleep和wait相关，sleep是否占用CPU，为什么
+3.重入锁，ReentrantLock实现
+4. AQS
+5. volatile和synchronized，多个线程写volatile的线程安全性
+6. CAS相关
+7.NIO
+8.各种IO，阻塞和同步的区别
+9.epoll和select、poll的区别
+10.边缘触发，水平触发
+11.零拷贝相关
+12.面向对象相关
+
+只记得这么多了，都是有多少说多少，持续75分钟左右，随缘了，感谢面试官。
